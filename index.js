@@ -1,55 +1,79 @@
-/*
-* Copyright 2018 Joachim Bakke
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
 
-const util = require('util');
-//const moment = require("moment")
-const utilSK = require('@signalk/nmea0183-utilities');
-//const countries = require('i18n-iso-countries')
-//var obj = require("./schema.json"); //require empty schema
-const _ = require('lodash');
+const debug = require('debug')('signalk-resources')
+const _ = require('lodash')
+const path = require('path')
+const fs = require('fs')
+const Routes = require('./routes')
+const {apiRoutePrefix} = require('./constants')
 
+module.exports = function(app) {
+  let routeProviders = []
+  let pluginStarted = false
+  const configBasePath = app.config.configPath
+  const defaultRoutesPath = path.join(configBasePath, "/routes")
+  ensureDirectoryExists(defaultRoutesPath)
 
-module.exports = function(app, options) {
-  'use strict';
-  var client;
-  var context = "vessels.*";
+  function start(props) {
+    const routesPath = props.routesPath ? path.resolve(configBasePath, props.routesPath) : defaultRoutesPath
+    debug(`Start plugin, routes path: ${routesPath}`)
+    const loadProviders = Routes.findRoutes(routesPath)
+    return loadProviders.then(routes => {
+      console.log(`Route plugin: Found ${_.keys(routes).length} routes from ${routesPath}`)
+      routeProviders = routes
+      // Do not register routes if plugin has been started once already
+      pluginStarted === false && registerRoutes()
+      pluginStarted = true
+    }).catch(e => {
+      console.error(`Error loading route providers`, e.message)
+      routeProviders = {}
+    })
+  }
+
+  function stop() {
+    debug("Route plugin stopped")
+  }
+
+  function registerRoutes() {
+
+    app.get(apiRoutePrefix + "/routes", (req, res) => {
+      const sanitized = _.mapValues(routeProviders, sanitizeProvider)
+      res.json(sanitized)
+    })
+  }
 
   return {
-    id: "signalk-resources",
-    name: "Resource manager",
-    description: "Plugin to manage resources such as routes",
-
+    id: 'routes',
+    name: 'Signal K Routes',
+    description: 'Singal K Routes resource',
     schema: {
-      title: "Signal K resource manager",
-      type: "object",
+      title: 'Signal K Routes',
+      type: 'object',
       properties: {
+        routesPath: {
+          type: 'string',
+          title: "Routes path",
+          description: `Path for route files, relative to "${configBasePath}". Defaults to "${defaultRoutesPath}".`
+        }
       }
     },
+    start,
+    stop
+  }
+}
 
-    start: function(options) {},
 
-    registerWithRouter: function(router) {
-      app.get('/signalk/v1/api/resources/routes$', (req, res) => {
-        res.contentType('application/json');
-        var empty = {}
-        res.send(empty)
+const responseHttpOptions = {
+  headers: {
+    'Cache-Control': 'public, max-age=7776000' // 90 days
+  }
+}
 
-    },
+function sanitizeProvider(provider) {
+  return _.omit(provider, ['_filePath', '_fileFormat', '_mbtilesHandle', '_flipY'])
+}
 
-    stop: function() {
-      debug("Stopped")
-    }
+function ensureDirectoryExists (path) {
+  if (!fs.existsSync(path)) {
+    fs.mkdirSync(path)
   }
 }
