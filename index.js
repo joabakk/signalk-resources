@@ -3,7 +3,7 @@ const debug = require('debug')('signalk-resources')
 const _ = require('lodash')
 const path = require('path')
 const fs = require('fs')
-const Routes = require('./routes')
+//const Routes = require('./routes')
 const {apiRoutePrefix} = require('./constants')
 
 module.exports = function(app) {
