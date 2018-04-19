@@ -17,6 +17,11 @@
     "lodash": "4.17.4",
     "xml2js": "0.4.19"
   },
+  "files": [
+    "constants.js",
+    "index.js",
+    "routes.js"
+  ],
   "author": "Joachim Bakke",
   "license": "ISC"
 }
