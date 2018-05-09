@@ -1,6 +1,6 @@
 {
   "name": "signalk-resources",
-  "version": "0.0.4",
+  "version": "0.1.0",
   "description": "Plugin to manage resources such as routes",
   "main": "index.js",
   "scripts": {
